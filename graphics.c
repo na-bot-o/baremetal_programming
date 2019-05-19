@@ -48,3 +48,26 @@ unsigned char is_in_rect(unsigned int x, unsigned int y, struct RECT r){
             return TRUE;
     return FALSE;
 }
+
+void blt(unsigned char img[], unsigned int img_width, unsigned int img_height){
+    unsigned char *fb;
+    unsigned int i,j,k,vr,hr,ofs = 0;
+
+    fb = (unsigned char *)GOP->Mode->FrameBufferBase;
+    vr = GOP->Mode->Info->VerticalResolution;
+    hr = GOP->Mode->Info->HorizontalResolution;
+
+    for(i = 0; i < vr; i++){
+        if(i >= img_height)
+            break;
+        for(j = 0; j < hr; j++){
+            if(j >= img_width){
+                fb += (hr - img_width) * 4;
+                break;
+            }
+            for(k = 0; k < 4; k++){
+                *fb++ = img[ofs++];
+            }
+        }
+    }
+}

@@ -7,6 +7,10 @@
 
 #define MAX_COMMAND_LEN 100
 
+#define MAX_IMG_BUF 4194304
+
+unsigned char img_buf[MAX_IMG_BUF];
+
 void dialogue_get_filename(int idx){
   int i;
 
@@ -151,6 +155,30 @@ void edit(unsigned short *file_name){
   root->Close(root);
 }
 
+void view(unsigned short *img_name){
+  unsigned long long buf_size = MAX_IMG_BUF;
+  unsigned long long status;
+  struct EFI_FILE_PROTOCOL *root;
+  struct EFI_FILE_PROTOCOL *file;
+  unsigned int vr = GOP->Mode->Info->VerticalResolution;
+  unsigned int hr = GOP->Mode->Info->HorizontalResolution;
+
+  status = SFSP->OpenVolume(SFSP,&root);
+
+  assert(status,L"error: SFSP->OpenVolume");
+
+  status = root->Open(root, &file, img_name,EFI_FILE_MODE_READ,EFI_FILE_READ_ONLY);
+  assert(status,L"error: root->Open");
+
+  status = file->Read(file,&buf_size, (void *)img_buf);
+  if(check_warn_error(status,L"warning:file->Read"))
+    blt(img_buf,hr,vr);
+  while(getc() != SC_ESC);
+
+  status = file->Close(file);
+  status = root->Close(file);
+}
+
 void shell(void){
     unsigned short com[MAX_COMMAND_LEN];
     struct RECT r = {10, 10, 100, 200};
@@ -176,6 +204,9 @@ void shell(void){
           edit(L"abc");
         else if(!strcmp(L"exit",com))
           is_exit = TRUE;
+        else if(!strcmp(L"view",com)){
+          view(L"img");
+        }
         else 
           puts(L"Command not found.\r\n");
         

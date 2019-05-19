@@ -7,27 +7,54 @@
 
 #define WIDTH_PER_CH 8
 #define HEIGHT_PER_CH 20
+#define EXIT_BUTTON_WIDTH 20
+#define EXIT_BUTTON_HEIGHT 20
+#define CURSOR_WIDTH 4
+#define CURSOR_HEIGHT 4
 
-struct EFI_GRAPHICS_OUTPUT_BLT_PIXEL cursor_tmp = {0,0,0,0};
+//struct EFI_GRAPHICS_OUTPUT_BLT_PIXEL cursor_tmp = {0,0,0,0};
+struct FILE rect_exit_button;
+struct EFI_GRAPHICS_OUTPUT_BLT_PIXEL cursor_tmp[CURSOR_HEIGHT][CURSOR_WIDTH] = {
+    {{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0}},
+    {{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0}},
+    {{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0}},
+    {{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0}}
+};
 
 int cursor_old_x;
 int cursor_old_y;
 
 void draw_cursor(int x, int y){
-    draw_pixel(x,y,white);
+    int i,j;
+    for(i = 0; i < CURSOR_HEIGHT;i++)
+        for(j = 0; j < CURSOR_WIDTH; j++)
+            if((i * j) < CURSOR_WIDTH)
+                draw_pixel(x + j,y + i,white);
 }
 
 void save_cursor_area(int x, int y){
-    cursor_tmp = get_pixel(x,y);
-    cursor_tmp.Reserved = 0xff;
+    int i, j;
+    for(i = 0; i < CURSOR_HEIGHT; i++){
+        for(j = 0; j < CURSOR_WIDTH; j++){
+            if((i * j) < CURSOR_WIDTH){
+                cursor_tmp[i][j] = get_pixel(x+j,y+i);
+                cursor_tmp[i][j].Reserved = 0xff;
+            }
+        }
+    }
+
 }
 
 void load_cursor_area(int x, int y){
-    draw_pixel(x,y,cursor_tmp);
+    int i, j;
+    for(i = 0; i < CURSOR_HEIGHT; i++)
+        for(j = 0; j < CURSOR_WIDTH; j++)
+            if((i * j) < CURSOR_WIDTH)
+                draw_pixel(x+j,y+i,cursor_tmp[i][j]);
 }
 
 void put_cursor(int x, int y){
-    if(cursor_tmp.Reserved)
+    if(cursor_tmp[0][0].Reserved)
         load_cursor_area(cursor_old_x,cursor_old_y);
     save_cursor_area(x,y);
 
@@ -35,6 +62,42 @@ void put_cursor(int x, int y){
 
     cursor_old_x = x;
     cursor_old_y = y;
+}
+
+void put_exit_button(void){
+    unsigned int hr = GOP->Mode->Info->HorizontalResolution;
+    unsigned int x;
+    rect_exit_button.rect.x = hr - EXIT_BUTTON_WIDTH;
+    rect_exit_button.rect.y = 0;
+    rect_exit_button.rect.w = EXIT_BUTTON_WIDTH;
+    rect_exit_button.rect.h = EXIT_BUTTON_HEIGHT;
+    rect_exit_button.is_highlight = FALSE;
+
+    draw_rect(rect_exit_button.rect, white);
+
+    for(x = 3; x < rect_exit_button.rect.w - 3; x++){
+        draw_pixel(x + rect_exit_button.rect.x,x,white);
+        draw_pixel(x + rect_exit_button.rect.x, rect_exit_button.rect.w- x, white);
+    }
+
+}
+
+unsigned char update_exit_button(int px, int py, unsigned char is_clicked){
+    unsigned char is_exit = FALSE;
+    
+    if(is_in_rect(px,py, rect_exit_button.rect)){
+        if(!rect_exit_button.is_highlight){
+            draw_rect(rect_exit_button.rect,yellow);
+            rect_exit_button.is_highlight = TRUE;
+        } if(is_clicked)
+            is_exit = TRUE;
+    } else {
+        if(rect_exit_button.is_highlight){
+            draw_rect(rect_exit_button.rect, white);
+            rect_exit_button.is_highlight = FALSE;
+        }
+    }
+    return is_exit;
 }
 
 int ls_gui(void){
@@ -85,14 +148,18 @@ void gui(void){
     unsigned char prev_rb = FALSE, executed_rb;
     //unsigned char is_highlight = FALSE;
 
+    unsigned char is_exit = FALSE;
+
     //ST->ConOut->ClearScreen(ST->ConOut);
     SPP->Reset(SPP,FALSE);
 
     file_num = ls_gui();
 
+    put_exit_button();
+
 //    draw_rect(r,white);
 
-    while(TRUE){
+    while(!is_exit){
         ST->BootServices->WaitForEvent(1, &(SPP->WaitForInput), &waitidx);
         status = SPP->GetState(SPP, &s);
         if(!status){
@@ -119,13 +186,18 @@ void gui(void){
                         file_list[idx].is_highlight = TRUE;
                     }
                     if(prev_lb && !s.LeftButton){
-                        cat_gui(file_list[idx].name);
+                        if(file_list[idx].name[0] != L'i')
+                            cat_gui(file_list[idx].name);
+                        else
+                            view(file_list[idx].name);
                         file_num = ls_gui();
+                        put_exit_button();
                     }
 
                     if(prev_rb && !s.RightButton){
                         edit(file_list[idx].name);
                         file_num = ls_gui();
+                        put_exit_button();
                         executed_rb = TRUE;
                     }
                 } else {
@@ -141,7 +213,10 @@ void gui(void){
             edit(file_list[file_num].name);
             ST->ConOut->ClearScreen(ST->ConOut);
             file_num = ls_gui();
+            put_exit_button();
         }
+
+        is_exit = update_exit_button(px,py,prev_lb && !s.LeftButton);
         
         prev_lb = s.LeftButton;
         prev_rb = s.RightButton;

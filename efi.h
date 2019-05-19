@@ -7,6 +7,41 @@
 
 #define EFI_FILE_READ_ONLY  0x0000000000000001
 
+//***************************************
+// Attributes
+//***************************************
+
+#define EFI_BLACK 0x00
+#define EFI_BLUE 0x01
+#define EFI_GREEN 0x02
+#define EFI_CYAN 0x03
+#define EFI_RED 0x04
+#define EFI_MAGENTA 0x05
+#define EFI_BROWN 0x06
+#define EFI_LIGHTGRAY 0x07
+#define EFI_BRIGHT 0x08
+#define EFI_DARKGRAY 0x08
+#define EFI_LIGHTBLUE 0x09
+#define EFI_LIGHTGREEN 0x0A
+#define EFI_LIGHTCYAN 0x0B
+#define EFI_LIGHTRED 0x0C
+#define EFI_LIGHTMAGENTA 0x0D
+#define EFI_YELLOW 0x0E
+#define EFI_WHITE 0x0F
+
+#define EFI_BACKGROUND_BLACK 0x00
+#define EFI_BACKGROUND_BLUE 0x10
+#define EFI_BACKGROUND_GREEN 0x20
+#define EFI_BACKGROUND_CYAN 0x30
+#define EFI_BACKGROUND_RED 0x40
+#define EFI_BACKGROUND_MAGENTA 0x50
+#define EFI_BACKGROUND_BROWN 0x60
+#define EFI_BACKGROUND_LIGHTGRAY 0x70
+
+#define EFI_SUCCESS 0
+#define EFI_ERROR 0x8000000000000000
+#define EFI_UNSUPPORTED (EFI_ERROR|3)
+
 struct EFI_INPUT_KEY {
   unsigned short ScanCode;
   unsigned short UnicodeChar;
@@ -35,10 +70,34 @@ struct EFI_SYSTEM_TABLE {
     unsigned long long (*OutputString)(
       struct EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *This,
       unsigned short *String);
-    unsigned long long _buf2[4];
     unsigned long long (*ClearScreen)(
       struct EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *This);
+    unsigned long long _buf2;
+    unsigned long long (*SetAttribute)(
+      struct EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *This,
+      unsigned long long Attribute
+    );
+    unsigned long long (*TestString)(
+      struct EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *This,
+      unsigned short *String
+    );
+    unsigned long long (*QueryMode)(
+      struct EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *This,
+      unsigned long long ModeNumber,
+      unsigned long long *Columns,
+      unsigned long long *Rows
+    );
+    unsigned long long _buf4[2];
+    struct SIMPLE_TEXT_OUTPUT_MODE {
+      int MaxMode;
+      int Mode;
+      int Attribute;
+      int CursorColumn;
+      int CursorRow;
+      unsigned char CursorVisible;
+    } *Mode;
   }*ConOut;
+
   unsigned long long _buf3[3];
   struct  EFI_BOOT_SERVICES {
       char _buf1[24];
